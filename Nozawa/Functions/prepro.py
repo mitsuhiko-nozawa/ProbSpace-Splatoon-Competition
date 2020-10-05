@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
-def make_input(df1, df2, drop_col, verbose):
+def make_input(df1, df2, drop_col, categorical_encode, verbose):
     cols = df1.columns
     for col in cols:
         if verbose:
@@ -18,23 +18,51 @@ def make_input(df1, df2, drop_col, verbose):
             df1 = df1.fillna({col:med})
             df2 = df2.fillna({col:med})
             continue
-        df1 = df1.fillna({col:'none'})
-        df2 = df2.fillna({col:'none'})
-        lbl = LabelEncoder()
-        obj = list(set(df1[col].to_list() + df2[col].to_list()))
-        lbl.fit(obj)
-        df1[col] = lbl.transform(df1[col])
-        df2[col] = lbl.transform(df2[col])
+        df1 = df1.fillna({col: 'none'})
+        df2 = df2.fillna({col: 'none'})
+        if categorical_encode:
+            lbl = LabelEncoder()
+            obj = list(set(df1[col].to_list() + df2[col].to_list()))
+            lbl.fit(obj)
+            df1[col] = lbl.transform(df1[col])
+            df2[col] = lbl.transform(df2[col])
 
     return df1, df2
 
 
-def addTeamInfo(df1, df2):
+def addTeamInfo_(df, col_):
+    teams = ["-A", "-B"]
+    members = ["1", "2", "3", "4"]
+    contents = []
+
+    for t, m in itertools.product(teams, members):
+        col = col_ + t + m
+        df = df.fillna({col: "nan"})
+        contents.append(df[col].unique().tolist())
+
+    contents = list(set(itertools.chain.from_iterable(contents)))
+    contents.remove("nan")
+
+    for t in teams:
+        col = col_ + t
+        print(col)
+        t1 = pd.crosstab(df.index, df[col + "1"])
+        t2 = pd.crosstab(df.index, df[col + "2"])
+        t3 = pd.crosstab(df.index, df[col + "3"])
+        t4 = pd.crosstab(df.index, df[col + "4"])
+
+        for item in contents:
+            df[item + '-' + col_ + t] = (t1[item] + t2[item] + t3[item] + t4[item])
+
+    return df
+
+
+
+def addTeamInfo(df1, df2, cols):
     """
     description
     各スペシャル、サブウェポンがチームに何人いるのかを表すカラムを追加
     """
-
 
     TRAIN_SIZE = df1.shape[0]
 
@@ -42,41 +70,8 @@ def addTeamInfo(df1, df2):
     all_df = all_df.reset_index(drop=True)
     all_df.index += 1
     print(all_df.shape)
-
-    base_cols = ["special", "subweapon"]
-    teams = ["-A", "-B"]
-    members = ["1", "2", "3", "4"]
-    sps = []
-    subs = []
-
-    for b, t, m in itertools.product(base_cols, teams, members):
-        col = b + t + m
-        all_df = all_df.fillna({col:"nan"})
-        if (b == "special"):
-            sps.append(all_df[col].unique().tolist())
-        else:
-            subs.append(all_df[col].unique().tolist())
-    sps = list(set(itertools.chain.from_iterable(sps)))
-    sps.remove("nan")
-
-    subs = list(set(itertools.chain.from_iterable(subs)))
-    subs.remove("nan")
-
-    print(sps)
-    print(subs)
-
-    for b, t in itertools.product(base_cols, teams):
-        col = b + t
-        print(col)
-        t1 = pd.crosstab(all_df.index, all_df[col + "1"])
-        t2 = pd.crosstab(all_df.index, all_df[col + "2"])
-        t3 = pd.crosstab(all_df.index, all_df[col + "3"])
-        t4 = pd.crosstab(all_df.index, all_df[col + "4"])
-        itr = sps
-        if b == "subweapon":
-            itr = subs
-        for item in itr:
-            all_df[item + '-' + b + t] = (t1[item] + t2[item] + t3[item] + t4[item])
+    for col in cols:
+        all_df = addTeamInfo_(all_df, col)
 
     print(all_df.shape)
 
@@ -111,19 +106,20 @@ def add_numeric_info(df, cols):
         col_list = [col_ for col_ in df.columns.to_list() if team in col_ and col in col_]
         df[new_col+'max'] = df[col_list].max(axis=1)
         df[new_col + 'min'] = df[col_list].min(axis=1)
-        # df[new_col + 'std'] = df[col_list].std(axis=1)
+        df[new_col + 'mean'] = df[col_list].mean(axis=1)
+        df[new_col + 'median'] = df[col_list].median(axis=1)
+        df[new_col + 'std'] = df[col_list].std(axis=1)
+        df[new_col + 'sum'] = df[col_list].sum(axis=1)
 
     return df
 
 
-def flat(df):
-    df["A1-level"] = df["A1-level"].apply(np.log2)
-    df["A2-level"] = df["A2-level"].apply(np.log2)
-    df["A3-level"] = df["A3-level"].apply(np.log2)
-    df["A4-level"] = df["A4-level"].apply(np.log2)
-    df["B1-level"] = df["B1-level"].apply(np.log2)
-    df["B2-level"] = df["B2-level"].apply(np.log2)
-    df["B3-level"] = df["B3-level"].apply(np.log2)
-    df["B4-level"] = df["B4-level"].apply(np.log2)
+
+
+
+def flat(df, cols):
+    for col_name in cols:
+        for col in [col_ for col_ in df.columns if col_name in col_]:
+            df[col] = df[col].apply(np.log2)
 
     return df
