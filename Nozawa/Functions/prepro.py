@@ -166,14 +166,16 @@ def make_kfolds(SIZE, K):
     res.append(indices)
     return res
 
-def target_encoding(df1, df2, y_, col, nfolds=5):
+def target_encoding(df1, df2, y_, col, y_col="y", nfolds=5):
     tgt_col = col+"-tgt-enc"
     random.seed(random.randint(0, 10000))
     SIZE = df1.shape[0]
     folds = make_kfolds(SIZE, nfolds)
     all_indices = sum(folds, [])
-    df1["y"] = y_.values
-    df1_ = df1[[col, "y"]]
+    if y_col == "y":
+        df1[y_col] = y_.values
+    print(df1[y_col])
+    df1_ = df1[[col, y_col]]
 
 
     contents = list(set(df1[col].unique().tolist() + df2[col].unique().tolist()))
@@ -185,8 +187,8 @@ def target_encoding(df1, df2, y_, col, nfolds=5):
 
         for content in contents:
             indices = df1_.iloc[fold][df1_[col] == content].index-1  # fold内のある種別を持つインデックスの抽出
-            tgt_sum = df1_.iloc[out_fold][df1_[col] == content]["y"].sum()
-            tgt_size = df1_.iloc[out_fold][df1_[col] == content]["y"].shape[0]
+            tgt_sum = df1_.iloc[out_fold][df1_[col] == content][y_col].sum()
+            tgt_size = df1_.iloc[out_fold][df1_[col] == content][y_col].shape[0]
             df1[tgt_col].iloc[indices] = tgt_sum/(tgt_size+1)  # outfold内の同じ種別のターゲットの平均
 
     for content in contents:
@@ -196,7 +198,7 @@ def target_encoding(df1, df2, y_, col, nfolds=5):
             pass
             # print("test df doesn't have {} column.".format(content))
 
-    df1 = df1.drop("y", axis=1)
+    df1 = df1.drop(y_col, axis=1)
     return df1, df2
 
 
