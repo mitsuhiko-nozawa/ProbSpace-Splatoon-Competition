@@ -2,6 +2,7 @@ import itertools
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+import random
 
 def make_input(df1, df2, drop_col, categorical_encode, verbose):
     cols = df1.columns
@@ -123,3 +124,79 @@ def flat(df, cols):
             df[col] = df[col].apply(np.log2)
 
     return df
+
+
+def categorize_team(df1, df2, col_name):
+    # team - category1 - A 138
+    # team - category1 - B 138
+    # team - category2 - A 735
+    # team - category2 - B 735
+    # team - subweapon - A 1853
+    # team - subweapon - B 1853
+    # team - special - A 2588
+    # team - special - B 2588
+    # team - mainweapon - A 56115
+    # team - mainweapon - B 56115
+    # 1だと135, 2だと735種類
+    teams = ["A", "B"]
+    for team in teams:
+        cols = [col for col in df1.columns if "-"+col_name in col and team == col[-1]]
+        # print(cols)
+        t_col = "team" + "-" + col_name + "-" + team
+        df1[t_col] = ""
+        df2[t_col] = ""
+
+
+        for col in cols:
+            df1[t_col] += df1[col].astype("str") + "-"
+            df2[t_col] += df2[col].astype("str") + "-"
+
+    return df1, df2
+
+
+def make_kfolds(SIZE, K):
+    # return list object, each element is indices of its fold
+    FOLD_SIZE = int(SIZE/K)
+    res = []
+    indices = [i for i in range(SIZE)]
+    for i in range(K-1):
+        fold = random.sample(indices, FOLD_SIZE)
+        indices = list(set(indices) - set(fold))
+        res.append(fold)
+    res.append(indices)
+    return res
+
+def target_encoding(df1, df2, y_, col, nfolds=5):
+    tgt_col = col+"-tgt-enc"
+    random.seed(random.randint(0, 10000))
+    SIZE = df1.shape[0]
+    folds = make_kfolds(SIZE, nfolds)
+    all_indices = sum(folds, [])
+    df1["y"] = y_.values
+    df1_ = df1[[col, "y"]]
+
+
+    contents = list(set(df1[col].unique().tolist() + df2[col].unique().tolist()))
+    df1[tgt_col] = 0
+    df2[tgt_col] = 0
+    for i, fold in enumerate(folds):
+        print("fold {}".format(i))
+        out_fold = list(set(all_indices) - set(fold))
+
+        for content in contents:
+            indices = df1_.iloc[fold][df1_[col] == content].index-1  # fold内のある種別を持つインデックスの抽出
+            tgt_sum = df1_.iloc[out_fold][df1_[col] == content]["y"].sum()
+            tgt_size = df1_.iloc[out_fold][df1_[col] == content]["y"].shape[0]
+            df1[tgt_col].iloc[indices] = tgt_sum/(tgt_size+1)  # outfold内の同じ種別のターゲットの平均
+
+    for content in contents:
+        if content in df2[col].unique():
+            df2[tgt_col][df2[col] == content] = df1[df1[col] == content][tgt_col].mean()
+        else :
+            pass
+            # print("test df doesn't have {} column.".format(content))
+
+    df1 = df1.drop("y", axis=1)
+    return df1, df2
+
+
