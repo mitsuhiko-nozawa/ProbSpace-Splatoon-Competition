@@ -4,31 +4,27 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import random
 
-def make_input(df1, df2, drop_col, categorical_encode, verbose):
-    cols = df1.columns
+def make_input(df1, df2, drop_col, categorical_encode, scaler, verbose):
+
     all_df = pd.concat([df1, df2])
+    df1 = df1.drop(columns=drop_col, axis=1)
+    df2 = df2.drop(columns=drop_col, axis=1)
+    cols = df1.columns
     for col in cols:
         if verbose:
             print(col)
-        if col in drop_col:
-            df1 = df1.drop(col, axis=1)
-            df2 = df2.drop(col, axis=1)
-            continue
+
+
         elif df2[col].dtype in [int, float]:
-            df = pd.concat([df1[col], df2[col]])
-            med = df.median()
-            df1 = df1.fillna({col: med})
-            df2 = df2.fillna({col: med})
-            scaler = StandardScaler()
-            scaler.fit(all_df[col].values.reshape(-1, 1))
-            df1[col] = scaler.transform(df1[col].values.reshape(-1, 1))
-            df2[col] = scaler.transform(df2[col].values.reshape(-1, 1))
+            if scaler:
+                scaler = StandardScaler()
+                scaler.fit(all_df[col].values.reshape(-1, 1))
+                df1[col] = scaler.transform(df1[col].values.reshape(-1, 1))
+                df2[col] = scaler.transform(df2[col].values.reshape(-1, 1))
             continue
-        df1 = df1.fillna({col: 'none'})
-        df2 = df2.fillna({col: 'none'})
         if categorical_encode:
             lbl = LabelEncoder()
-            obj = list(set(df1[col].to_list() + df2[col].to_list()))
+            obj = all_df[col].unique()
             lbl.fit(obj)
             df1[col] = lbl.transform(df1[col])
             df2[col] = lbl.transform(df2[col])
@@ -43,11 +39,11 @@ def addTeamInfo_(df, col_):
 
     for t, m in itertools.product(teams, members):
         col = col_ + t + m
-        df = df.fillna({col: "nan"})
+        #df = df.fillna({col: "nan"})
         contents.append(df[col].unique().tolist())
 
     contents = list(set(itertools.chain.from_iterable(contents)))
-    contents.remove("nan")
+    #contents.remove("nan")
 
     for t in teams:
         col = col_ + t
@@ -58,7 +54,17 @@ def addTeamInfo_(df, col_):
         t4 = pd.crosstab(df.index, df[col + "4"])
 
         for item in contents:
-            df[item + '-' + col_ + t] = (t1[item] + t2[item] + t3[item] + t4[item])
+            t_ = t.replace('-', '') + '-'
+            col_name = t_ + item + '-' + col_
+            df[col_name] = 0
+            tabs = [t1, t2, t3, t4]
+            for tab in tabs:
+                try:
+                    df[col_name] += tab[item]
+                except:
+                    #print("Key {} does not exist".format(item))
+                    pass
+
 
     return df
 
@@ -145,7 +151,7 @@ def categorize_team(df1, df2, col_name):
     # 1だと135, 2だと735種類
     teams = ["A", "B"]
     for team in teams:
-        cols = [col for col in df1.columns if "-"+col_name in col and team == col[-1]]
+        cols = [col for col in df1.columns if "-"+col_name in col and team == col[0]]
         # print(cols)
         t_col = "team" + "-" + col_name + "-" + team
         df1[t_col] = ""
@@ -172,6 +178,7 @@ def make_kfolds(SIZE, K):
     return res
 
 def target_encoding(df1, df2, y_, col, y_col="y", nfolds=5):
+    df1 = df1.reset_index(drop=True)
     tgt_col = col+"-tgt-enc"
     random.seed(random.randint(0, 10000))
     SIZE = df1.shape[0]
@@ -186,7 +193,7 @@ def target_encoding(df1, df2, y_, col, y_col="y", nfolds=5):
     df1[tgt_col] = 0
     df2[tgt_col] = 0
     for i, fold in enumerate(folds):
-        print("fold {}".format(i))
+        # print("fold {}".format(i))
         out_fold = list(set(all_indices) - set(fold))
 
         for content in contents:
@@ -206,3 +213,166 @@ def target_encoding(df1, df2, y_, col, y_col="y", nfolds=5):
     return df1, df2
 
 
+def mizumashi(df, y):
+    try:
+        y = y.values
+    except:
+        pass
+
+    cat_cols = df.select_dtypes(include=["category"]).columns
+
+    df["y"] = y
+    df2 = df.copy()
+    A1_col = [col for col in df.columns if "A1" in col]
+    A2_col = [col for col in df.columns if "A2" in col]
+    A3_col = [col for col in df.columns if "A3" in col]
+    A4_col = [col for col in df.columns if "A4" in col]
+
+    A_col = [col for col in df.columns if "A-" in col]
+
+    for col in A1_col:
+        c_col = col.replace("A1", "C1")
+        b_col = col.replace("A1", "B1")
+        df2.rename(columns={col: c_col}, inplace=True)
+        df2.rename(columns={b_col: col}, inplace=True)
+        df2.rename(columns={c_col: b_col}, inplace=True)
+
+    for col in A2_col:
+        c_col = col.replace("A2", "C2")
+        b_col = col.replace("A2", "B2")
+        df2.rename(columns={col: c_col}, inplace=True)
+        df2.rename(columns={b_col: col}, inplace=True)
+        df2.rename(columns={c_col: b_col}, inplace=True)
+
+    for col in A3_col:
+        c_col = col.replace("A3", "C3")
+        b_col = col.replace("A3", "B3")
+        df2.rename(columns={col: c_col}, inplace=True)
+        df2.rename(columns={b_col: col}, inplace=True)
+        df2.rename(columns={c_col: b_col}, inplace=True)
+
+    for col in A4_col:
+        c_col = col.replace("A4", "C4")
+        b_col = col.replace("A4", "B4")
+        df2.rename(columns={col: c_col}, inplace=True)
+        df2.rename(columns={b_col: col}, inplace=True)
+        df2.rename(columns={c_col: b_col}, inplace=True)
+
+    for col in A_col:
+        c_col = col.replace("A-", "C-")
+        b_col = col.replace("A-", "B-")
+        df2.rename(columns={col: c_col}, inplace=True)
+        df2.rename(columns={b_col: col}, inplace=True)
+        df2.rename(columns={c_col: b_col}, inplace=True)
+
+    df2["y"] = df2["y"].apply(lambda x: 1 - x)
+    all_df = pd.concat([df, df2])
+    y = all_df["y"]
+    all_df = all_df.drop("y", axis=1)
+    all_df[cat_cols] = all_df[cat_cols].astype("category")
+
+    return all_df, y
+
+
+def count_weapon(df1, df2):
+    all_df = pd.concat([df1, df2])
+    SIZE = all_df.shape[0] * 7
+    weap_cols = [col for col in df1.columns if "-weapon" in col and "A1" not in col]
+    weap_counts = all_df[weap_cols[-1]].value_counts()
+
+    for col in weap_cols[:-1]:
+        weap_counts.add(all_df[col].value_counts())
+
+    def func(x):
+        return weap_counts[x]/SIZE if x == x else 0
+
+    for col in [col for col in df1.columns if "-weapon" in col]:
+        df1[col + "-count"] = df1[col].map(func)
+        df2[col + "-count"] = df2[col].map(func)
+
+    return df1, df2
+
+
+def count_weapon_by_mode(df1, df2):
+    all_df = pd.concat([df1, df2])
+
+
+    for col in [col for col in df1.columns if "-weapon" in col and "count" not in col]:
+        col_name = col + "-count-by-mode"
+        df1[col_name] = 0
+        df2[col_name] = 0
+    for mode in df1["mode"].unique():
+        SIZE = all_df[all_df["mode"] == mode].shape[0] * 7
+
+        weap_cols = [col for col in df1.columns if "-weapon" in col and "A1" not in col and "count" not in col]
+        weap_counts = all_df[all_df["mode"] == mode][weap_cols[-1]].value_counts()
+
+        for col in weap_cols[:-1]:
+            weap_counts.add(all_df[all_df["mode"] == mode][col].value_counts())
+
+        def func(x):
+            return weap_counts[x] / SIZE if x == x else 0
+
+        for col in [col for col in df1.columns if "-weapon" in col and "count" not in col]:
+            col_name = col + "-count-by-mode"
+            df1[col_name][df1["mode"] == mode] = df1[col][df1["mode"] == mode].map(func)
+            df2[col_name][df2["mode"] == mode] = df2[col][df2["mode"] == mode].map(func)
+
+    return df1, df2
+
+def is_nawabari(df1, df2):
+    df1["is_nawabari"] = df1["mode"].map(lambda x: 1 if x == "nawabari" else 0)
+    df2["is_nawabari"] = df2["mode"].map(lambda x: 1 if x == "nawabari" else 0)
+    return df1, df2
+
+def match_rank(df1, df2):
+    col_name = "match_rank"
+    def func(x):
+        if x != x:
+            return "-"
+        x = x.replace("+", "").replace("-", "")
+        return x
+    df1[col_name] = df1["A1-rank"].map(func)
+    df2[col_name] = df2["A1-rank"].map(func)
+    return df1, df2
+
+
+def fillna_rank(df1, df2):
+    df1["A4-rank"][df1["A4-level"].isnull()] = "none"
+    df2["A4-rank"][df2["A4-level"].isnull()] = "none"
+    df1["B3-rank"][df1["B3-level"].isnull()] = "none"
+    df2["B3-rank"][df2["B3-level"].isnull()] = "none"
+    df1["B4-rank"][df1["B4-level"].isnull()] = "none"
+    df2["B4-rank"][df2["B4-level"].isnull()] = "none"
+
+    df1["A1-rank"][df1["A1-rank"].isnull()] = "nawabari"
+    df2["A1-rank"][df2["A1-rank"].isnull()] = "nawabari"
+    df1["A2-rank"][df1["A2-rank"].isnull()] = "nawabari"
+    df2["A2-rank"][df2["A2-rank"].isnull()] = "nawabari"
+    df1["A3-rank"][df1["A3-rank"].isnull()] = "nawabari"
+    df2["A3-rank"][df2["A3-rank"].isnull()] = "nawabari"
+    df1["A4-rank"][df1["A4-rank"].isnull()] = "nawabari"
+    df2["A4-rank"][df2["A4-rank"].isnull()] = "nawabari"
+
+    df1["B1-rank"][df1["B1-rank"].isnull()] = "nawabari"
+    df2["B1-rank"][df2["B1-rank"].isnull()] = "nawabari"
+    df1["B2-rank"][df1["B2-rank"].isnull()] = "nawabari"
+    df2["B2-rank"][df2["B2-rank"].isnull()] = "nawabari"
+    df1["B3-rank"][df1["B3-rank"].isnull()] = "nawabari"
+    df2["B3-rank"][df2["B3-rank"].isnull()] = "nawabari"
+    df1["B4-rank"][df1["B4-rank"].isnull()] = "nawabari"
+    df2["B4-rank"][df2["B4-rank"].isnull()] = "nawabari"
+    return df1, df2
+
+def fillna(df1, df2):
+    all_df = pd.concat([df1, df2])
+    missing_cols = [col for col in all_df.columns if all_df[col].isnull().any()]
+    for col in missing_cols:
+        d_type = all_df[col].dtype
+        if d_type in [int, float]:
+            df1[col] = df1[col].fillna(-9999)
+            df2[col] = df2[col].fillna(-9999)
+        else:
+            df1[col] = df1[col].fillna("none")
+            df2[col] = df2[col].fillna("none")
+    return df1, df2
