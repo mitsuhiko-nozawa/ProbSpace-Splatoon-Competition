@@ -1,11 +1,12 @@
 import itertools
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 import random
 
 def make_input(df1, df2, drop_col, categorical_encode, verbose):
     cols = df1.columns
+    all_df = pd.concat([df1, df2])
     for col in cols:
         if verbose:
             print(col)
@@ -16,8 +17,12 @@ def make_input(df1, df2, drop_col, categorical_encode, verbose):
         elif df2[col].dtype in [int, float]:
             df = pd.concat([df1[col], df2[col]])
             med = df.median()
-            df1 = df1.fillna({col:med})
-            df2 = df2.fillna({col:med})
+            df1 = df1.fillna({col: med})
+            df2 = df2.fillna({col: med})
+            scaler = StandardScaler()
+            scaler.fit(all_df[col].values.reshape(-1, 1))
+            df1[col] = scaler.transform(df1[col].values.reshape(-1, 1))
+            df2[col] = scaler.transform(df2[col].values.reshape(-1, 1))
             continue
         df1 = df1.fillna({col: 'none'})
         df2 = df2.fillna({col: 'none'})
@@ -27,7 +32,7 @@ def make_input(df1, df2, drop_col, categorical_encode, verbose):
             lbl.fit(obj)
             df1[col] = lbl.transform(df1[col])
             df2[col] = lbl.transform(df2[col])
-
+    print("complete")
     return df1, df2
 
 
@@ -174,7 +179,6 @@ def target_encoding(df1, df2, y_, col, y_col="y", nfolds=5):
     all_indices = sum(folds, [])
     if y_col == "y":
         df1[y_col] = y_.values
-    print(df1[y_col])
     df1_ = df1[[col, y_col]]
 
 
