@@ -2,6 +2,8 @@ import itertools
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import StratifiedKFold
+
 import random
 
 def make_input(df1, df2, drop_col, categorical_encode, scaler, verbose):
@@ -18,6 +20,7 @@ def make_input(df1, df2, drop_col, categorical_encode, scaler, verbose):
         elif df2[col].dtype in [int, float]:
             if scaler:
                 scaler = StandardScaler()
+                print("scale")
                 scaler.fit(all_df[col].values.reshape(-1, 1))
                 df1[col] = scaler.transform(df1[col].values.reshape(-1, 1))
                 df2[col] = scaler.transform(df2[col].values.reshape(-1, 1))
@@ -55,7 +58,7 @@ def addTeamInfo_(df, col_):
 
         for item in contents:
             t_ = t.replace('-', '') + '-'
-            col_name = t_ + item + '-' + col_
+            col_name = t_ + item + '-' + col_ + "-onehot"
             df[col_name] = 0
             tabs = [t1, t2, t3, t4]
             for tab in tabs:
@@ -151,7 +154,7 @@ def categorize_team(df1, df2, col_name):
     # 1だと135, 2だと735種類
     teams = ["A", "B"]
     for team in teams:
-        cols = [col for col in df1.columns if "-"+col_name in col and team == col[0]]
+        cols = [col for col in df1.columns if "-"+col_name in col and team == col[0] and "onehot" in col]
         # print(cols)
         t_col = "team" + "-" + col_name + "-" + team
         df1[t_col] = ""
@@ -166,7 +169,8 @@ def categorize_team(df1, df2, col_name):
 
 
 def make_kfolds(SIZE, K):
-    # return list object, each element is indices of its fold
+    # return list object, each element is indices of its fold, completely random
+    random.seed(random.randint(0, 10000))
     FOLD_SIZE = int(SIZE/K)
     res = []
     indices = [i for i in range(SIZE)]
@@ -267,7 +271,7 @@ def mizumashi(df, y):
 
     df2["y"] = df2["y"].apply(lambda x: 1 - x)
     all_df = pd.concat([df, df2])
-    y = all_df["y"]
+    y = all_df["y"].values
     all_df = all_df.drop("y", axis=1)
     all_df[cat_cols] = all_df[cat_cols].astype("category")
 
@@ -375,4 +379,286 @@ def fillna(df1, df2):
         else:
             df1[col] = df1[col].fillna("none")
             df2[col] = df2[col].fillna("none")
+    return df1, df2
+
+
+def make_stratified_kfolds(X_, y_, K):
+    skf = StratifiedKFold(n_splits=K, shuffle=True)
+    folds_ = []
+    for train_fold, valid_fold in skf.split(X_, y_):
+        folds_.append(list(valid_fold))
+    return folds_
+
+def make_even_kfolds(X, y_1, K):
+    random.seed(random.randint(0, 10000))
+    X_ = X.copy()
+    X_["y"] = y_1
+    folds_ = []
+    for i in range(K):
+        folds_.append([])
+
+    for mode, stage, y_ in itertools.product(X_["mode"].unique(), X_["stage"].unique(), X_["y"].unique()):
+        indices = list(X_[X_["mode"] == mode][X_["stage"] == stage][X_["y"] == y_].index - 1)
+
+        SAMPLE_SIZE = int(len(indices) / K)
+
+        for i in range(K - 1):
+            fold = random.sample(indices, SAMPLE_SIZE)
+            indices = list(set(indices) - set(fold))
+            folds_[i] += fold
+
+        folds_[-1] += indices
+
+    return folds_
+
+
+def count_reskin(df1, df2):
+    all_df = pd.concat([df1, df2])
+    SIZE = all_df.shape[0] * 7
+    reskin_cols = [col for col in df1.columns if "reskin" in col and "A1" not in col]
+    reskin_counts = all_df[reskin_cols[-1]].value_counts()
+
+    for col in reskin_cols[:-1]:
+        reskin_counts.add(all_df[col].value_counts())
+
+    def func(x):
+        return reskin_counts[x]/SIZE if x == x else 0
+
+    for col in [col for col in df1.columns if "reskin" in col]:
+        df1[col + "-count"] = df1[col].map(func)
+        df2[col + "-count"] = df2[col].map(func)
+
+    return df1, df2
+
+
+def count_reskin_by_mode(df1, df2):
+    all_df = pd.concat([df1, df2])
+
+
+    for col in [col for col in df1.columns if "reskin" in col and "count" not in col]:
+        col_name = col + "-count-by-mode"
+        df1[col_name] = 0
+        df2[col_name] = 0
+    for mode in df1["mode"].unique():
+        SIZE = all_df[all_df["mode"] == mode].shape[0] * 7
+
+        weap_cols = [col for col in df1.columns if "reskin" in col and "A1" not in col and "count" not in col]
+        weap_counts = all_df[all_df["mode"] == mode][weap_cols[-1]].value_counts()
+
+        for col in weap_cols[:-1]:
+            weap_counts.add(all_df[all_df["mode"] == mode][col].value_counts())
+
+        def func(x):
+            return weap_counts[x] / SIZE if x == x else 0
+
+        for col in [col for col in df1.columns if "reskin" in col and "count" not in col]:
+            col_name = col + "-count-by-mode"
+            df1[col_name][df1["mode"] == mode] = df1[col][df1["mode"] == mode].map(func)
+            df2[col_name][df2["mode"] == mode] = df2[col][df2["mode"] == mode].map(func)
+
+    return df1, df2
+
+def count_subweapon(df1, df2):
+    all_df = pd.concat([df1, df2])
+    SIZE = all_df.shape[0] * 7
+    reskin_cols = [col for col in df1.columns if "subweapon" in col and "A1" not in col]
+    reskin_counts = all_df[reskin_cols[-1]].value_counts()
+
+    for col in reskin_cols[:-1]:
+        reskin_counts.add(all_df[col].value_counts())
+
+    def func(x):
+        return reskin_counts[x]/SIZE if x == x else 0
+
+    for col in [col for col in df1.columns if "subweapon" in col]:
+        df1[col + "-count"] = df1[col].map(func)
+        df2[col + "-count"] = df2[col].map(func)
+
+    return df1, df2
+
+
+def count_subweapon_by_mode(df1, df2):
+    all_df = pd.concat([df1, df2])
+
+
+    for col in [col for col in df1.columns if "subweapon" in col and "count" not in col]:
+        col_name = col + "-count-by-mode"
+        df1[col_name] = 0
+        df2[col_name] = 0
+    for mode in df1["mode"].unique():
+        SIZE = all_df[all_df["mode"] == mode].shape[0] * 7
+
+        weap_cols = [col for col in df1.columns if "subweapon" in col and "A1" not in col and "count" not in col]
+        weap_counts = all_df[all_df["mode"] == mode][weap_cols[-1]].value_counts()
+
+        for col in weap_cols[:-1]:
+            weap_counts.add(all_df[all_df["mode"] == mode][col].value_counts())
+
+        def func(x):
+            return weap_counts[x] / SIZE if x == x else 0
+
+        for col in [col for col in df1.columns if "subweapon" in col and "count" not in col]:
+            col_name = col + "-count-by-mode"
+            df1[col_name][df1["mode"] == mode] = df1[col][df1["mode"] == mode].map(func)
+            df2[col_name][df2["mode"] == mode] = df2[col][df2["mode"] == mode].map(func)
+
+    return df1, df2
+
+def count_mainweapon(df1, df2):
+    all_df = pd.concat([df1, df2])
+    SIZE = all_df.shape[0] * 7
+    reskin_cols = [col for col in df1.columns if "mainweapon" in col and "A1" not in col]
+    reskin_counts = all_df[reskin_cols[-1]].value_counts()
+
+    for col in reskin_cols[:-1]:
+        reskin_counts.add(all_df[col].value_counts())
+
+    def func(x):
+        return reskin_counts[x]/SIZE if x == x else 0
+
+    for col in [col for col in df1.columns if "mainweapon" in col]:
+        df1[col + "-count"] = df1[col].map(func)
+        df2[col + "-count"] = df2[col].map(func)
+
+    return df1, df2
+
+
+def count_mainweapon_by_mode(df1, df2):
+    all_df = pd.concat([df1, df2])
+
+
+    for col in [col for col in df1.columns if "mainweapon" in col and "count" not in col]:
+        col_name = col + "-count-by-mode"
+        df1[col_name] = 0
+        df2[col_name] = 0
+    for mode in df1["mode"].unique():
+        SIZE = all_df[all_df["mode"] == mode].shape[0] * 7
+
+        weap_cols = [col for col in df1.columns if "mainweapon" in col and "A1" not in col and "count" not in col]
+        weap_counts = all_df[all_df["mode"] == mode][weap_cols[-1]].value_counts()
+
+        for col in weap_cols[:-1]:
+            weap_counts.add(all_df[all_df["mode"] == mode][col].value_counts())
+
+        def func(x):
+            return weap_counts[x] / SIZE if x == x else 0
+
+        for col in [col for col in df1.columns if "mainweapon" in col and "count" not in col]:
+            col_name = col + "-count-by-mode"
+            df1[col_name][df1["mode"] == mode] = df1[col][df1["mode"] == mode].map(func)
+            df2[col_name][df2["mode"] == mode] = df2[col][df2["mode"] == mode].map(func)
+
+    return df1, df2
+
+def count_special(df1, df2):
+    all_df = pd.concat([df1, df2])
+    SIZE = all_df.shape[0] * 7
+    reskin_cols = [col for col in df1.columns if "special" in col and "-special" not in col and "A1" not in col]
+    reskin_counts = all_df[reskin_cols[-1]].value_counts()
+
+    for col in reskin_cols[:-1]:
+        reskin_counts.add(all_df[col].value_counts())
+
+    def func(x):
+        return reskin_counts[x]/SIZE if x == x else 0
+
+    for col in [col for col in df1.columns if "special" in col and "-special" not in col]:
+        df1[col + "-count"] = df1[col].map(func)
+        df2[col + "-count"] = df2[col].map(func)
+
+    return df1, df2
+
+
+def count_special_by_mode(df1, df2):
+    all_df = pd.concat([df1, df2])
+
+
+    for col in [col for col in df1.columns if "special" in col and "-special" not in col and "count" not in col]:
+        col_name = col + "-count-by-mode"
+        df1[col_name] = 0
+        df2[col_name] = 0
+    for mode in df1["mode"].unique():
+        SIZE = all_df[all_df["mode"] == mode].shape[0] * 7
+
+        weap_cols = [col for col in df1.columns if "special" in col and "-special" not in col and "A1" not in col and "count" not in col]
+        weap_counts = all_df[all_df["mode"] == mode][weap_cols[-1]].value_counts()
+
+        for col in weap_cols[:-1]:
+            weap_counts.add(all_df[all_df["mode"] == mode][col].value_counts())
+
+        def func(x):
+            return weap_counts[x] / SIZE if x == x else 0
+
+        for col in [col for col in df1.columns if "special" in col and "-special" not in col and "count" not in col]:
+            col_name = col + "-count-by-mode"
+            df1[col_name][df1["mode"] == mode] = df1[col][df1["mode"] == mode].map(func)
+            df2[col_name][df2["mode"] == mode] = df2[col][df2["mode"] == mode].map(func)
+
+    return df1, df2
+
+
+def prod(df1, df2, col1, col2):
+    col_name = col1 + " * " + col2
+    df1[col_name] = df1[col1] + df1[col2]
+    df2[col_name] = df2[col1] + df2[col2]
+
+    return df1, df2
+
+
+def identify_A1(df1, df2):
+    all_df = pd.concat([df1, df2]).reset_index(drop=True)
+
+    def get_seq_labels(seq, threshold=0):
+        """
+        seq : 時系列順のリスト
+        threshold : level up のための最低試合数
+
+        [3,3,3,4,4,4,4,4,7,7,7,7,2,2,2,1,1,1,2,8,8,8] : level
+         => [1,1,1,1,1,1,1,1,2,2,2,2,3,3,3,4,4,4,3,2,2,2] : player id
+        というように、レベルに応じてA1の特定を考えます
+
+        """
+
+        box = np.zeros(len(seq), dtype=int)  # 最終的にラベルが入るボックス
+        count = 1  # label
+
+        for _ in (range(1000)):
+            # level : 時系列順のレベルでユニークなもの
+            # s     : levelの値を格納
+
+            ind = np.where(box == 0)[0][0]
+            s = seq[ind]
+
+            renew_box = []
+            for i in range(len(seq)):
+
+                if box[i] == 0:
+
+                    if s == seq[i]:
+                        box[i] = count
+                        renew_box.append(seq[i])
+
+                    elif (s + 1 == seq[i]) and ((np.array(renew_box) == s).sum() >= threshold):
+                        s += 1
+                        box[i] = count
+
+                else:
+                    continue
+
+            count += 1
+
+            if (box == 0).sum() == 0:
+                # box が全部埋まれば break
+                break
+
+        return box
+
+    all_df = all_df.sort_values(["period", "A1-level"])
+    levels = all_df["A1-level"].tolist()  # A1 level を時系列順にソートしたリスト
+
+    all_df["a1-player"] = get_seq_labels(levels, 15)
+    all_df = all_df.sort_index()
+
+    df1 = all_df[:df1.shape[0]]
+    df2 = all_df[df1.shape[0]:].reset_index(drop=True)
     return df1, df2
