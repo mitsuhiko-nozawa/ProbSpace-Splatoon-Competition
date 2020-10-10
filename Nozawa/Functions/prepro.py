@@ -2,7 +2,8 @@ import itertools
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
+import category_encoders.target_encoder as te
 
 import random
 
@@ -18,7 +19,11 @@ def make_input(df1, df2, drop_col, categorical_encode, scaler, verbose):
 
 
         elif df2[col].dtype in [int, float]:
-            if scaler:
+            if scaler and "onehot" not in col:
+                # df1[col] = df1[col].apply(np.log1p)
+                # df2[col] = df2[col].apply(np.log1p)
+                # all_df[col] = all_df[col].apply(np.log1p)
+                # NN 二つ併用するとlossがnanになる
                 scaler = StandardScaler()
                 print("scale")
                 scaler.fit(all_df[col].values.reshape(-1, 1))
@@ -118,7 +123,7 @@ def add_numeric_info(df, cols):
     teams = ["A", "B"]
     for team, col in itertools.product(teams, cols):
         new_col = team + '-' + col + '-'
-        col_list = [col_ for col_ in df.columns.to_list() if team in col_ and col in col_]
+        col_list = [col_ for col_ in df.columns if team in col_ and col in col_]
         df[new_col+'max'] = df[col_list].max(axis=1)
         df[new_col + 'min'] = df[col_list].min(axis=1)
         df[new_col + 'mean'] = df[col_list].mean(axis=1)
@@ -181,39 +186,64 @@ def make_kfolds(SIZE, K):
     res.append(indices)
     return res
 
+
+def target_encoder(df1, df2, col, y, n_splits=5, drop=True):
+    kf = KFold(n_splits=n_splits, random_state=random.randint(0, 100000), shuffle=True)
+    col_name = "tgtenc-" + col
+    df1[col_name] = 0
+    for train_index, test_index in kf.split(df1):
+        enc = te.TargetEncoder().fit(df1.iloc[train_index][col].astype("str"), y[train_index])
+        df1[col_name].iloc[test_index] = enc.transform(df1.iloc[test_index][col].astype("str"))[col]
+    enc = te.TargetEncoder().fit(df1[col].astype("str"), y)
+    df2[col_name] = enc.transform(df2[col].astype("str"))[col]
+    if drop:
+        df1 = df1.drop(col, axis=1)
+        df2 = df2.drop(col, axis=1)
+    return df1, df2
+
+
 def target_encoding(df1, df2, y_, col, y_col="y", nfolds=5):
     df1 = df1.reset_index(drop=True)
-    tgt_col = col+"-tgt-enc"
-    random.seed(random.randint(0, 10000))
+    tgt_col = col + "-tgt-enc"
     SIZE = df1.shape[0]
     folds = make_kfolds(SIZE, nfolds)
     all_indices = sum(folds, [])
     if y_col == "y":
-        df1[y_col] = y_.values
+        df1[y_col] = y_
     df1_ = df1[[col, y_col]]
-
 
     contents = list(set(df1[col].unique().tolist() + df2[col].unique().tolist()))
     df1[tgt_col] = 0
     df2[tgt_col] = 0
     for i, fold in enumerate(folds):
-        # print("fold {}".format(i))
         out_fold = list(set(all_indices) - set(fold))
-
+        group_sum = df1_.iloc[out_fold].groupby(col)[y_col].sum()
+        group_count = df1_.iloc[out_fold].groupby(col)[y_col].count() + 1
         for content in contents:
-            indices = df1_.iloc[fold][df1_[col] == content].index-1  # fold内のある種別を持つインデックスの抽出
-            tgt_sum = df1_.iloc[out_fold][df1_[col] == content][y_col].sum()
-            tgt_size = df1_.iloc[out_fold][df1_[col] == content][y_col].shape[0]
-            df1[tgt_col].iloc[indices] = tgt_sum/(tgt_size+1)  # outfold内の同じ種別のターゲットの平均
+            indices = df1_.iloc[fold][df1_[col] == content].index - 1
+            try:
+                # df1[df1[col] == content][tgt_col].iloc[fold] = group_sum[content] / group_count[content]
+                df1[tgt_col].iloc[indices] = group_sum[content] / group_count[content]
+            except:
+                df1[tgt_col].iloc[indices] = 0
+
+    group_sum = df1_.groupby(col)[y_col].sum()
+    group_count = df1_.groupby(col)[y_col].count() + 1
 
     for content in contents:
-        if content in df2[col].unique():
-            df2[tgt_col][df2[col] == content] = df1[df1[col] == content][tgt_col].mean()
-        else :
+        try:
+            tag = group_sum[content] / group_count[content]
+        except:
+            tag = 0
+
+        try:
+            df2[tgt_col][df1[col] == content] = tag
+        except:
             pass
-            # print("test df doesn't have {} column.".format(content))
 
     df1 = df1.drop(y_col, axis=1)
+    df1 = df1.drop(col, axis=1)
+    df2 = df2.drop(col, axis=1)
     return df1, df2
 
 
@@ -324,10 +354,12 @@ def count_weapon_by_mode(df1, df2):
 
     return df1, df2
 
+
 def is_nawabari(df1, df2):
     df1["is_nawabari"] = df1["mode"].map(lambda x: 1 if x == "nawabari" else 0)
     df2["is_nawabari"] = df2["mode"].map(lambda x: 1 if x == "nawabari" else 0)
     return df1, df2
+
 
 def match_rank(df1, df2):
     col_name = "match_rank"
@@ -382,12 +414,13 @@ def fillna(df1, df2):
     return df1, df2
 
 
-def make_stratified_kfolds(X_, y_, K):
-    skf = StratifiedKFold(n_splits=K, shuffle=True)
+def make_stratified_kfolds(X_, y_, K, shuffle):
+    skf = StratifiedKFold(n_splits=K, shuffle=shuffle)
     folds_ = []
     for train_fold, valid_fold in skf.split(X_, y_):
         folds_.append(list(valid_fold))
     return folds_
+
 
 def make_even_kfolds(X, y_1, K):
     random.seed(random.randint(0, 10000))
@@ -399,6 +432,29 @@ def make_even_kfolds(X, y_1, K):
 
     for mode, stage, y_ in itertools.product(X_["mode"].unique(), X_["stage"].unique(), X_["y"].unique()):
         indices = list(X_[X_["mode"] == mode][X_["stage"] == stage][X_["y"] == y_].index - 1)
+
+        SAMPLE_SIZE = int(len(indices) / K)
+
+        for i in range(K - 1):
+            fold = random.sample(indices, SAMPLE_SIZE)
+            indices = list(set(indices) - set(fold))
+            folds_[i] += fold
+
+        folds_[-1] += indices
+
+    return folds_
+
+
+def make_mode_even_kfolds(X, y_1, K):
+    random.seed(random.randint(0, 10000))
+    X_ = X.copy()
+    X_["y"] = y_1
+    folds_ = []
+    for i in range(K):
+        folds_.append([])
+
+    for mode, y_ in itertools.product(X_["mode"].unique(), X_["y"].unique()):
+        indices = list(X_[X_["mode"] == mode][X_["y"] == y_].index - 1)
 
         SAMPLE_SIZE = int(len(indices) / K)
 
@@ -598,7 +654,7 @@ def count_special_by_mode(df1, df2):
 
 
 def prod(df1, df2, col1, col2):
-    col_name = col1 + " * " + col2
+    col_name = col1 + " x " + col2
     df1[col_name] = df1[col1] + df1[col2]
     df2[col_name] = df2[col1] + df2[col2]
 
@@ -616,49 +672,82 @@ def identify_A1(df1, df2):
         [3,3,3,4,4,4,4,4,7,7,7,7,2,2,2,1,1,1,2,8,8,8] : level
          => [1,1,1,1,1,1,1,1,2,2,2,2,3,3,3,4,4,4,3,2,2,2] : player id
         というように、レベルに応じてA1の特定を考えます
-
         """
-
         box = np.zeros(len(seq), dtype=int)  # 最終的にラベルが入るボックス
         count = 1  # label
-
         for _ in (range(1000)):
             # level : 時系列順のレベルでユニークなもの
             # s     : levelの値を格納
-
             ind = np.where(box == 0)[0][0]
             s = seq[ind]
-
             renew_box = []
             for i in range(len(seq)):
-
                 if box[i] == 0:
-
                     if s == seq[i]:
                         box[i] = count
                         renew_box.append(seq[i])
-
                     elif (s + 1 == seq[i]) and ((np.array(renew_box) == s).sum() >= threshold):
                         s += 1
                         box[i] = count
-
                 else:
                     continue
-
             count += 1
-
             if (box == 0).sum() == 0:
                 # box が全部埋まれば break
                 break
-
         return box
-
     all_df = all_df.sort_values(["period", "A1-level"])
     levels = all_df["A1-level"].tolist()  # A1 level を時系列順にソートしたリスト
-
     all_df["a1-player"] = get_seq_labels(levels, 15)
     all_df = all_df.sort_index()
-
     df1 = all_df[:df1.shape[0]]
     df2 = all_df[df1.shape[0]:].reset_index(drop=True)
     return df1, df2
+
+def level_inverse(df1,df2):
+    all_df = pd.concat([df1, df2])
+
+    A1_level_df = all_df[["A1-rank", "A1-level"]]
+    A1_level_df.columns = ["rank", "level"]
+    A2_level_df = all_df[["A2-rank", "A2-level"]]
+    A2_level_df.columns = ["rank", "level"]
+    A3_level_df = all_df[["A3-rank", "A3-level"]]
+    A3_level_df.columns = ["rank", "level"]
+    A4_level_df = all_df[["A4-rank", "A4-level"]]
+    A4_level_df.columns = ["rank", "level"]
+
+    B1_level_df = all_df[["B1-rank", "B1-level"]]
+    B1_level_df.columns = ["rank", "level"]
+    B2_level_df = all_df[["B2-rank", "B2-level"]]
+    B2_level_df.columns = ["rank", "level"]
+    B3_level_df = all_df[["B3-rank", "B3-level"]]
+    B3_level_df.columns = ["rank", "level"]
+    B4_level_df = all_df[["B4-rank", "B4-level"]]
+    B4_level_df.columns = ["rank", "level"]
+
+    level_df = pd.concat([A2_level_df, A3_level_df, A4_level_df, B1_level_df, B2_level_df, B3_level_df, B4_level_df])
+
+    rank_g = level_df.groupby("rank")["level"].mean()
+
+    df1["A1-level-inverse"] = df1[["A1-level", "A1-rank"]].apply(lambda x: rank_g[x["A1-rank"]] / x["A1-level"], axis=1)
+    df1["A2-level-inverse"] = df1[["A2-level", "A2-rank"]].apply(lambda x: rank_g[x["A2-rank"]] / x["A2-level"], axis=1)
+    df1["A3-level-inverse"] = df1[["A3-level", "A3-rank"]].apply(lambda x: rank_g[x["A3-rank"]] / x["A3-level"], axis=1)
+    df1["A4-level-inverse"] = df1[["A4-level", "A4-rank"]].apply(lambda x: rank_g[x["A4-rank"]] / x["A4-level"], axis=1)
+    df1["B1-level-inverse"] = df1[["B1-level", "B1-rank"]].apply(lambda x: rank_g[x["B1-rank"]] / x["B1-level"], axis=1)
+    df1["B2-level-inverse"] = df1[["B2-level", "B2-rank"]].apply(lambda x: rank_g[x["B2-rank"]] / x["B2-level"], axis=1)
+    df1["B3-level-inverse"] = df1[["B3-level", "B3-rank"]].apply(lambda x: rank_g[x["B3-rank"]] / x["B3-level"], axis=1)
+    df1["B4-level-inverse"] = df1[["B4-level", "B4-rank"]].apply(lambda x: rank_g[x["B4-rank"]] / x["B4-level"], axis=1)
+    df2["A1-level-inverse"] = df2[["A1-level", "A1-rank"]].apply(lambda x: rank_g[x["A1-rank"]] / x["A1-level"], axis=1)
+    df2["A2-level-inverse"] = df2[["A2-level", "A2-rank"]].apply(lambda x: rank_g[x["A2-rank"]] / x["A2-level"], axis=1)
+    df2["A3-level-inverse"] = df2[["A3-level", "A3-rank"]].apply(lambda x: rank_g[x["A3-rank"]] / x["A3-level"], axis=1)
+    df2["A4-level-inverse"] = df2[["A4-level", "A4-rank"]].apply(lambda x: rank_g[x["A4-rank"]] / x["A4-level"], axis=1)
+    df2["B1-level-inverse"] = df2[["B1-level", "B1-rank"]].apply(lambda x: rank_g[x["B1-rank"]] / x["B1-level"], axis=1)
+    df2["B2-level-inverse"] = df2[["B2-level", "B2-rank"]].apply(lambda x: rank_g[x["B2-rank"]] / x["B2-level"], axis=1)
+    df2["B3-level-inverse"] = df2[["B3-level", "B3-rank"]].apply(lambda x: rank_g[x["B3-rank"]] / x["B3-level"], axis=1)
+    df2["B4-level-inverse"] = df2[["B4-level", "B4-rank"]].apply(lambda x: rank_g[x["B4-rank"]] / x["B4-level"], axis=1)
+
+    return df1, df2
+
+
+
+
