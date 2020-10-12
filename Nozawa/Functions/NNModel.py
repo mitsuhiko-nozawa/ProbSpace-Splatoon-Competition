@@ -38,20 +38,19 @@ def make_model(df1, df2, categorical_feature):
 
     concat = Concatenate()([num_input, *embs])
 
-    outputs = (Dense(1024, kernel_regularizer=regularizers.l2(0.01), bias_regularizer=regularizers.l2(0.01)))(concat)
-    outputs = (Activation('relu'))(outputs)
-    outputs = (Dropout(.4))(outputs)
+    outputs = Dense(1024)(concat)
+    outputs = Activation('relu')(outputs)
+    outputs = Dropout(.4)(outputs)
 
-    outputs = (Dense(128, kernel_regularizer=regularizers.l2(0.01), bias_regularizer=regularizers.l2(0.01)))(outputs)
-    outputs = (Activation('relu'))(outputs)
-    outputs = (Dropout(.4))(outputs)
+    outputs = Dense(128)(outputs)
+    outputs = Activation('relu')(outputs)
+    outputs = Dropout(.4)(outputs)
 
-    outputs = (Dense(1))(outputs)
-    outputs = (Activation('sigmoid'))(outputs)
+    outputs = Dense(1)(outputs)
+    outputs = Activation('sigmoid')(outputs)
 
     model = Model(inputs=[num_input, *inputs], outputs=[outputs])
     model.compile(optimizer=Adam(lr=0.0001), loss="binary_crossentropy")
-    #display(model.summary())
 
     return model
 
@@ -75,19 +74,16 @@ def make_model2(df1, df2, categorical_feature):
     outputs = Concatenate()([num_input, *embs])
     outputs = Dropout(0.13)(outputs)
 
-    outputs = Dense(2000, kernel_regularizer=regularizers.l2(0.01), bias_regularizer=regularizers.l2(0.01))(outputs)
-    #outputs = Dense(2000)(outputs)
+    outputs = Dense(2000)(outputs)
     outputs = Activation('relu')(outputs)
     outputs = Dropout(0.7)(outputs)
 
 
-    outputs = Dense(1200, kernel_regularizer=regularizers.l2(0.01), bias_regularizer=regularizers.l2(0.01))(outputs)
-    #outputs = Dense(1200)(outputs)
+    outputs = Dense(1200)(outputs)
     outputs = Activation('relu')(outputs)
     outputs = Dropout(.4)(outputs)
 
-    outputs = Dense(40, kernel_regularizer=regularizers.l2(0.01), bias_regularizer=regularizers.l2(0.01))(outputs)
-    #outputs = Dense(40)(outputs)
+    outputs = Dense(40)(outputs)
     outputs = Activation('relu')(outputs)
 
     outputs = Dense(1)(outputs)
@@ -97,6 +93,7 @@ def make_model2(df1, df2, categorical_feature):
     model.compile(optimizer=Adam(lr=0.0001), loss="binary_crossentropy")
 
     return model
+
 
 
 

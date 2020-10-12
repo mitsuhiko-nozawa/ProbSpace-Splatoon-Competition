@@ -19,6 +19,8 @@ def make_input(df1, df2, drop_col, categorical_encode, scaler, verbose):
 
 
         elif df2[col].dtype in [int, float]:
+            if df1[col].value_counts().shape[0] < 5:
+                continue
             if scaler and "onehot" not in col:
                 # df1[col] = df1[col].apply(np.log1p)
                 # df2[col] = df2[col].apply(np.log1p)
@@ -167,8 +169,9 @@ def categorize_team(df1, df2, col_name):
 
 
         for col in cols:
-            df1[t_col] += df1[col].astype("str") + "-"
-            df2[t_col] += df2[col].astype("str") + "-"
+            col_nam = col.replace(team, "").replace(col_name, "").replace("onehot", "").replace("-", "")
+            df1[t_col] += col_nam + df1[col].astype("str") + "-"
+            df2[t_col] += col_nam + df2[col].astype("str") + "-"
 
     return df1, df2
 
@@ -414,8 +417,8 @@ def fillna(df1, df2):
     return df1, df2
 
 
-def make_stratified_kfolds(X_, y_, K, shuffle):
-    skf = StratifiedKFold(n_splits=K, shuffle=shuffle)
+def make_stratified_kfolds(X_, y_, K, shuffle, random_state=0):
+    skf = StratifiedKFold(n_splits=K, shuffle=shuffle, random_state=random_state)
     folds_ = []
     for train_fold, valid_fold in skf.split(X_, y_):
         folds_.append(list(valid_fold))
@@ -729,25 +732,184 @@ def level_inverse(df1,df2):
 
     rank_g = level_df.groupby("rank")["level"].mean()
 
-    df1["A1-level-inverse"] = df1[["A1-level", "A1-rank"]].apply(lambda x: rank_g[x["A1-rank"]] / x["A1-level"], axis=1)
-    df1["A2-level-inverse"] = df1[["A2-level", "A2-rank"]].apply(lambda x: rank_g[x["A2-rank"]] / x["A2-level"], axis=1)
-    df1["A3-level-inverse"] = df1[["A3-level", "A3-rank"]].apply(lambda x: rank_g[x["A3-rank"]] / x["A3-level"], axis=1)
-    df1["A4-level-inverse"] = df1[["A4-level", "A4-rank"]].apply(lambda x: rank_g[x["A4-rank"]] / x["A4-level"], axis=1)
-    df1["B1-level-inverse"] = df1[["B1-level", "B1-rank"]].apply(lambda x: rank_g[x["B1-rank"]] / x["B1-level"], axis=1)
-    df1["B2-level-inverse"] = df1[["B2-level", "B2-rank"]].apply(lambda x: rank_g[x["B2-rank"]] / x["B2-level"], axis=1)
-    df1["B3-level-inverse"] = df1[["B3-level", "B3-rank"]].apply(lambda x: rank_g[x["B3-rank"]] / x["B3-level"], axis=1)
-    df1["B4-level-inverse"] = df1[["B4-level", "B4-rank"]].apply(lambda x: rank_g[x["B4-rank"]] / x["B4-level"], axis=1)
-    df2["A1-level-inverse"] = df2[["A1-level", "A1-rank"]].apply(lambda x: rank_g[x["A1-rank"]] / x["A1-level"], axis=1)
-    df2["A2-level-inverse"] = df2[["A2-level", "A2-rank"]].apply(lambda x: rank_g[x["A2-rank"]] / x["A2-level"], axis=1)
-    df2["A3-level-inverse"] = df2[["A3-level", "A3-rank"]].apply(lambda x: rank_g[x["A3-rank"]] / x["A3-level"], axis=1)
-    df2["A4-level-inverse"] = df2[["A4-level", "A4-rank"]].apply(lambda x: rank_g[x["A4-rank"]] / x["A4-level"], axis=1)
-    df2["B1-level-inverse"] = df2[["B1-level", "B1-rank"]].apply(lambda x: rank_g[x["B1-rank"]] / x["B1-level"], axis=1)
-    df2["B2-level-inverse"] = df2[["B2-level", "B2-rank"]].apply(lambda x: rank_g[x["B2-rank"]] / x["B2-level"], axis=1)
-    df2["B3-level-inverse"] = df2[["B3-level", "B3-rank"]].apply(lambda x: rank_g[x["B3-rank"]] / x["B3-level"], axis=1)
-    df2["B4-level-inverse"] = df2[["B4-level", "B4-rank"]].apply(lambda x: rank_g[x["B4-rank"]] / x["B4-level"], axis=1)
+    df1["A1-level-inverse"] = df1[["A1-level", "A1-rank"]].apply(lambda x: x["A1-level"] / rank_g[x["A1-rank"]], axis=1)
+    df1["A2-level-inverse"] = df1[["A2-level", "A2-rank"]].apply(lambda x: x["A2-level"] / rank_g[x["A2-rank"]], axis=1)
+    df1["A3-level-inverse"] = df1[["A3-level", "A3-rank"]].apply(lambda x: x["A3-level"] / rank_g[x["A3-rank"]], axis=1)
+    df1["A4-level-inverse"] = df1[["A4-level", "A4-rank"]].apply(lambda x: x["A4-level"] / rank_g[x["A4-rank"]], axis=1)
+    df1["B1-level-inverse"] = df1[["B1-level", "B1-rank"]].apply(lambda x: x["B1-level"] / rank_g[x["B1-rank"]], axis=1)
+    df1["B2-level-inverse"] = df1[["B2-level", "B2-rank"]].apply(lambda x: x["B2-level"] / rank_g[x["B2-rank"]], axis=1)
+    df1["B3-level-inverse"] = df1[["B3-level", "B3-rank"]].apply(lambda x: x["B3-level"] / rank_g[x["B3-rank"]], axis=1)
+    df1["B4-level-inverse"] = df1[["B4-level", "B4-rank"]].apply(lambda x: x["B4-level"] / rank_g[x["B4-rank"]], axis=1)
 
+    df2["A1-level-inverse"] = df2[["A1-level", "A1-rank"]].apply(lambda x: x["A1-level"] / rank_g[x["A1-rank"]], axis=1)
+    df2["A2-level-inverse"] = df2[["A2-level", "A2-rank"]].apply(lambda x: x["A2-level"] / rank_g[x["A2-rank"]], axis=1)
+    df2["A3-level-inverse"] = df2[["A3-level", "A3-rank"]].apply(lambda x: x["A3-level"] / rank_g[x["A3-rank"]], axis=1)
+    df2["A4-level-inverse"] = df2[["A4-level", "A4-rank"]].apply(lambda x: x["A4-level"] / rank_g[x["A4-rank"]], axis=1)
+    df2["B1-level-inverse"] = df2[["B1-level", "B1-rank"]].apply(lambda x: x["B1-level"] / rank_g[x["B1-rank"]], axis=1)
+    df2["B2-level-inverse"] = df2[["B2-level", "B2-rank"]].apply(lambda x: x["B2-level"] / rank_g[x["B2-rank"]], axis=1)
+    df2["B3-level-inverse"] = df2[["B3-level", "B3-rank"]].apply(lambda x: x["B3-level"] / rank_g[x["B3-rank"]], axis=1)
+    df2["B4-level-inverse"] = df2[["B4-level", "B4-rank"]].apply(lambda x: x["B4-level"] / rank_g[x["B4-rank"]], axis=1)
     return df1, df2
 
 
+def mizumashi_perm(df, y):
+    pass
 
 
+def reskin_tgt_encoding(df1, df2, y, n_splits=5):
+    kf = KFold(n_splits=n_splits, random_state=random.randint(0, 100000), shuffle=True)
+    df1["y"] = y
+    i = 0
+    df1["mode x reskin-A1-tgtenc"] = 0
+    df1["mode x reskin-A2-tgtenc"] = 0
+    df1["mode x reskin-A3-tgtenc"] = 0
+    df1["mode x reskin-A4-tgtenc"] = 0
+    df1["mode x reskin-B1-tgtenc"] = 0
+    df1["mode x reskin-B2-tgtenc"] = 0
+    df1["mode x reskin-B3-tgtenc"] = 0
+    df1["mode x reskin-B4-tgtenc"] = 0
+    df2["mode x reskin-A1-tgtenc"] = 0
+    df2["mode x reskin-A2-tgtenc"] = 0
+    df2["mode x reskin-A3-tgtenc"] = 0
+    df2["mode x reskin-A4-tgtenc"] = 0
+    df2["mode x reskin-B1-tgtenc"] = 0
+    df2["mode x reskin-B2-tgtenc"] = 0
+    df2["mode x reskin-B3-tgtenc"] = 0
+    df2["mode x reskin-B4-tgtenc"] = 0
+
+    for train_index, test_index in kf.split(df1):
+        i += 1
+        print(
+            "----------------------------------------------- fold {} ----------------------------------------------- ".format(
+                i))
+        reskin_g = pd.concat([
+            df1.iloc[train_index][["mode x reskin-A2", "y"]].rename(columns={"mode x reskin-A2": "reskin"}),
+            df1.iloc[train_index][["mode x reskin-A3", "y"]].rename(columns={"mode x reskin-A3": "reskin"}),
+            df1.iloc[train_index][["mode x reskin-A4", "y"]].rename(columns={"mode x reskin-A4": "reskin"}),
+            pd.concat([df1.iloc[train_index]["mode x reskin-B1"], df1.iloc[train_index]["y"].apply(lambda x: 1 - x)],
+                      axis=1).rename(columns={"mode x reskin-B1": "reskin"}),
+            pd.concat([df1.iloc[train_index]["mode x reskin-B2"], df1.iloc[train_index]["y"].apply(lambda x: 1 - x)],
+                      axis=1).rename(columns={"mode x reskin-B2": "reskin"}),
+            pd.concat([df1.iloc[train_index]["mode x reskin-B3"], df1.iloc[train_index]["y"].apply(lambda x: 1 - x)],
+                      axis=1).rename(columns={"mode x reskin-B3": "reskin"}),
+            pd.concat([df1.iloc[train_index]["mode x reskin-B4"], df1.iloc[train_index]["y"].apply(lambda x: 1 - x)],
+                      axis=1).rename(columns={"mode x reskin-B4": "reskin"}),
+        ], axis=0, ignore_index=True).groupby("reskin")
+        win_rate = win_rate = reskin_g.sum() / reskin_g.count()
+        df1["mode x reskin-A1-tgtenc"].iloc[test_index] = df1["mode x reskin-A1"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-A2-tgtenc"].iloc[test_index] = df1["mode x reskin-A2"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-A3-tgtenc"].iloc[test_index] = df1["mode x reskin-A3"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-A4-tgtenc"].iloc[test_index] = df1["mode x reskin-A4"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-B1-tgtenc"].iloc[test_index] = df1["mode x reskin-B1"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-B2-tgtenc"].iloc[test_index] = df1["mode x reskin-B2"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-B3-tgtenc"].iloc[test_index] = df1["mode x reskin-B3"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+        df1["mode x reskin-B4-tgtenc"].iloc[test_index] = df1["mode x reskin-B4"].iloc[test_index].apply(
+            lambda x: win_rate.loc[x]).values.reshape(-1, )
+    print("----------------------------------------------- 終わり ----------------------------------------------- ")
+    reskin_g = pd.concat([
+        # df1[["mode x reskin-A1", "y"]].rename(columns={"mode x reskin-A1" : "reskin"}),
+        df1[["mode x reskin-A2", "y"]].rename(columns={"mode x reskin-A2": "reskin"}),
+        df1[["mode x reskin-A3", "y"]].rename(columns={"mode x reskin-A3": "reskin"}),
+        df1[["mode x reskin-A4", "y"]].rename(columns={"mode x reskin-A4": "reskin"}),
+        pd.concat([df1["mode x reskin-B1"], df1["y"].apply(lambda x: 1 - x)],
+                  axis=1).rename(columns={"mode x reskin-B1": "reskin"}),
+        pd.concat([df1["mode x reskin-B2"], df1["y"].apply(lambda x: 1 - x)],
+                  axis=1).rename(columns={"mode x reskin-B2": "reskin"}),
+        pd.concat([df1["mode x reskin-B3"], df1["y"].apply(lambda x: 1 - x)],
+                  axis=1).rename(columns={"mode x reskin-B3": "reskin"}),
+        pd.concat([df1["mode x reskin-B4"], df1["y"].apply(lambda x: 1 - x)],
+                  axis=1).rename(columns={"mode x reskin-B4": "reskin"}),
+    ], axis=0, ignore_index=True).groupby("reskin")
+    win_rate = win_rate = reskin_g.sum() / reskin_g.count()
+    df2["mode x reskin-A1-tgtenc"] = df2["mode x reskin-A1"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-A2-tgtenc"] = df2["mode x reskin-A2"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-A3-tgtenc"] = df2["mode x reskin-A3"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-A4-tgtenc"] = df2["mode x reskin-A4"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-B1-tgtenc"] = df2["mode x reskin-B1"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-B2-tgtenc"] = df2["mode x reskin-B2"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-B3-tgtenc"] = df2["mode x reskin-B3"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df2["mode x reskin-B4-tgtenc"] = df2["mode x reskin-B4"].apply(lambda x: win_rate.loc[x]).values.reshape(-1, )
+    df1.drop(columns="y", inplace=True)
+    drop_cols = [
+        "mode x reskin-A1", "mode x reskin-A2", "mode x reskin-A3", "mode x reskin-A4",
+        "mode x reskin-B1", "mode x reskin-B2", "mode x reskin-B3", "mode x reskin-B4"
+    ]
+    df1.drop(columns=drop_cols, inplace=True)
+    df2.drop(columns=drop_cols, inplace=True)
+
+    return df1, df2
+
+def ranker(df1, df2):
+    df1["A1-rank-mark"] = df1["A1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["A1-rank"] = df1["A1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["A2-rank-mark"] = df1["A2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["A2-rank"] = df1["A2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["A3-rank-mark"] = df1["A3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["A3-rank"] = df1["A3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["A4-rank-mark"] = df1["A4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["A4-rank"] = df1["A4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["B1-rank-mark"] = df1["B1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["B1-rank"] = df1["B1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["B2-rank-mark"] = df1["B2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["B2-rank"] = df1["B2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["B3-rank-mark"] = df1["B3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["B3-rank"] = df1["B3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["B4-rank-mark"] = df1["B4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df1["B4-rank"] = df1["B4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["A1-rank-mark"] = df2["A1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["A1-rank"] = df2["A1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["A2-rank-mark"] = df2["A2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["A2-rank"] = df2["A2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["A3-rank-mark"] = df2["A3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["A3-rank"] = df2["A3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["A4-rank-mark"] = df2["A4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["A4-rank"] = df2["A4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["B1-rank-mark"] = df2["B1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["B1-rank"] = df2["B1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["B2-rank-mark"] = df2["B2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["B2-rank"] = df2["B2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["B3-rank-mark"] = df2["B3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["B3-rank"] = df2["B3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["B4-rank-mark"] = df2["B4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    df2["B4-rank"] = df2["B4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    return df1, df2
+
+
+def find_rare(df1, df2, col, threshold=4):
+    v_tra = df1[col + "-A"].value_counts()
+    v_trb = df1[col + "-B"].value_counts()
+    v_tea = df2[col + "-A"].value_counts()
+    v_teb = df2[col + "-B"].value_counts()
+
+    v_counts = v_tra.add(v_trb, fill_value=0)
+    v_counts = v_counts.add(v_tea, fill_value=0)
+    v_counts = v_counts.add(v_teb, fill_value=0)
+
+    # threshold = v_counts.iloc[int(v_counts.shape[0]*0.8)]
+
+    tra = df1[col + "-A"].unique()
+    trb = df1[col + "-B"].unique()
+    tea = df2[col + "-A"].unique()
+    teb = df2[col + "-B"].unique()
+
+    not_appeared = []
+    print("fin count")
+    for item in v_counts.index:
+        if item not in tra or item not in trb or item not in tea or item not in teb or v_tra.loc[item] < 5 or v_trb.loc[
+            item] < 5:
+            not_appeared.append(item)
+
+    print("fin find rare", len(not_appeared))
+    df1[col + "-A"] = df1[col + "-A"].map(lambda x: "rare" if x in not_appeared else x)
+    df1[col + "-B"] = df1[col + "-B"].map(lambda x: "rare" if x in not_appeared else x)
+    df2[col + "-A"] = df2[col + "-A"].map(lambda x: "rare" if x in not_appeared else x)
+    df2[col + "-B"] = df2[col + "-B"].map(lambda x: "rare" if x in not_appeared else x)
+
+    return df1, df2
