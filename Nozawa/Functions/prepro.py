@@ -1,7 +1,7 @@
 import itertools
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import StratifiedKFold, KFold
 import category_encoders.target_encoder as te
 
@@ -131,7 +131,7 @@ def add_numeric_info(df, cols):
         df[new_col + 'mean'] = df[col_list].mean(axis=1)
         df[new_col + 'median'] = df[col_list].median(axis=1)
         df[new_col + 'std'] = df[col_list].std(axis=1)
-        df[new_col + 'sum'] = df[col_list].sum(axis=1)
+        # df[new_col + 'sum'] = df[col_list].sum(axis=1)
 
     return df
 
@@ -658,8 +658,8 @@ def count_special_by_mode(df1, df2):
 
 def prod(df1, df2, col1, col2):
     col_name = col1 + " x " + col2
-    df1[col_name] = df1[col1] + df1[col2]
-    df2[col_name] = df2[col1] + df2[col2]
+    df1[col_name] = df1[col1] + " * " + df1[col2]
+    df2[col_name] = df2[col1] + " * " + df2[col2]
 
     return df1, df2
 
@@ -847,38 +847,47 @@ def reskin_tgt_encoding(df1, df2, y, n_splits=5):
     return df1, df2
 
 def ranker(df1, df2):
-    df1["A1-rank-mark"] = df1["A1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["A1-rank"] = df1["A1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["A2-rank-mark"] = df1["A2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["A2-rank"] = df1["A2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["A3-rank-mark"] = df1["A3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["A3-rank"] = df1["A3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["A4-rank-mark"] = df1["A4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["A4-rank"] = df1["A4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["B1-rank-mark"] = df1["B1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["B1-rank"] = df1["B1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["B2-rank-mark"] = df1["B2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["B2-rank"] = df1["B2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["B3-rank-mark"] = df1["B3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["B3-rank"] = df1["B3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df1["B4-rank-mark"] = df1["B4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df1["B4-rank"] = df1["B4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["A1-rank-mark"] = df2["A1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["A1-rank"] = df2["A1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["A2-rank-mark"] = df2["A2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["A2-rank"] = df2["A2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["A3-rank-mark"] = df2["A3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["A3-rank"] = df2["A3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["A4-rank-mark"] = df2["A4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["A4-rank"] = df2["A4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["B1-rank-mark"] = df2["B1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["B1-rank"] = df2["B1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["B2-rank-mark"] = df2["B2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["B2-rank"] = df2["B2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["B3-rank-mark"] = df2["B3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["B3-rank"] = df2["B3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
-    df2["B4-rank-mark"] = df2["B4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
-    df2["B4-rank"] = df2["B4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-A1"] = df1["A1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["A1-rank"] = df1["A1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-A2"] = df1["A2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["A2-rank"] = df1["A2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-A3"] = df1["A3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["A3-rank"] = df1["A3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-A4"] = df1["A4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["A4-rank"] = df1["A4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-B1"] = df1["B1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["B1-rank"] = df1["B1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-B2"] = df1["B2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["B2-rank"] = df1["B2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-B3"] = df1["B3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["B3-rank"] = df1["B3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df1["rank-mark-B4"] = df1["B4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df1["B4-rank"] = df1["B4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-A1"] = df2["A1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["A1-rank"] = df2["A1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-A2"] = df2["A2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["A2-rank"] = df2["A2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-A3"] = df2["A3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["A3-rank"] = df2["A3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-A4"] = df2["A4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["A4-rank"] = df2["A4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-B1"] = df2["B1-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["B1-rank"] = df2["B1-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-B2"] = df2["B2-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["B2-rank"] = df2["B2-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-B3"] = df2["B3-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["B3-rank"] = df2["B3-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    df2["rank-mark-B4"] = df2["B4-rank"].apply(lambda x: "*" if len(x)==1 else x[1])
+    #df2["B4-rank"] = df2["B4-rank"].apply(lambda x: x[0] if len(x) <= 2 else x)
+    drop_cols = [
+        "A1-rank", "A2-rank", "A3-rank", "A4-rank",
+        "B1-rank", "B2-rank", "B3-rank", "B4-rank"
+    ]
+    df1.drop(columns=drop_cols, inplace=True)
+    df2.drop(columns=drop_cols, inplace=True)
+
+
+
     return df1, df2
 
 

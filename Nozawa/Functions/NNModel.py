@@ -20,7 +20,7 @@ def prepro_nn(df, categorical_col):
 
 def make_model(df1, df2, categorical_feature):
     all_df = pd.concat([df1, df2])
-    numeric_feature_num = int(df1.columns .shape[0]) - len(categorical_feature)
+    numeric_feature_num = int(df1.columns.shape[0]) - len(categorical_feature)
     #numeric_feature_num = int((df.dtypes == float).sum() + (df.dtypes == int).sum())
     #print(numeric_feature_num)
     num_input = Input(numeric_feature_num, )
@@ -57,11 +57,15 @@ def make_model(df1, df2, categorical_feature):
 
 def make_model2(df1, df2, categorical_feature):
     all_df = pd.concat([df1, df2])
-    numeric_feature_num = int(df1.columns.shape[0]) - len(categorical_feature)
+    numeric_feature_num = int(df1.columns.shape[0]) - int(len(categorical_feature))
+    print(numeric_feature_num)
+    print("sss")
 
+    print(1)
     num_input = Input(numeric_feature_num, )
     inputs = []
     embs = []
+    
     for col in categorical_feature:
         value_size = all_df[col].unique().shape[0]
         input_cat = Input(1, )
@@ -98,3 +102,33 @@ def make_model2(df1, df2, categorical_feature):
 
 
 
+def make_model3(df1, df2):
+
+    inputs = Input(df1.shape[1],)
+    outputs = Dense(128)(inputs)
+    outputs = Activation('relu')(outputs)
+
+    outputs = Dense(32)(outputs)
+    outputs = Activation('relu')(outputs)
+
+    outputs = Dense(1)(outputs)
+    outputs = (Activation('sigmoid'))(outputs)
+
+    model = Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer=Adam(lr=0.0001), loss="binary_crossentropy")
+
+    return model
+
+def make_model4(df1, df2):
+
+    inputs = Input((df1.shape[1],))
+    outputs = Dense(32)(inputs)
+    outputs = Activation('relu')(outputs)
+
+    outputs = Dense(1)(outputs)
+    outputs = (Activation('sigmoid'))(outputs)
+
+    model = Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer=Adam(lr=0.001), loss="binary_crossentropy")
+
+    return model
