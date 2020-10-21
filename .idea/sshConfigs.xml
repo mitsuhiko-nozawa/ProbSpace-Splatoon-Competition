@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="gpgpu02.sfc.keio.ac.jp" id="bad3b9e6-bb59-4dbe-ac79-1b560e321c0c" keyPath="$USER_HOME$/.ssh/ssh_key" port="22" nameFormat="DESCRIPTIVE" username="s16673mn" />
+      <sshConfig host="gpgpu03.sfc.keio.ac.jp" id="8446f981-0c99-46b4-bac6-8ef0391e746e" keyPath="$USER_HOME$/.ssh/ssh_key" port="22" nameFormat="DESCRIPTIVE" username="s16673mn" />
+    </configs>
+  </component>
+</project>

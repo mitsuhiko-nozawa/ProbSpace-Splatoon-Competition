@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="s16673mn@gpgpu01.sfc.keio.ac.jp:22 key">
+    <serverData>
+      <paths name="s16673mn@gpgpu01.sfc.keio.ac.jp:22 key">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/Volumes/Work/anonymus" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="s16673mn@gpgpu02.sfc.keio.ac.jp:22 key">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/Volumes/Work/anonymus" local="$PROJECT_DIR$" web="" />
+            <mapping local="" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="s16673mn@gpgpu03">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/Volumes/Work/anonymus" local="$PROJECT_DIR$" web="/" />
+            <mapping local="" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

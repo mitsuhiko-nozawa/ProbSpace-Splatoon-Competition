@@ -656,12 +656,7 @@ def count_special_by_mode(df1, df2):
     return df1, df2
 
 
-def prod(df1, df2, col1, col2):
-    col_name = col1 + " x " + col2
-    df1[col_name] = df1[col1] + " * " + df1[col2]
-    df2[col_name] = df2[col1] + " * " + df2[col2]
 
-    return df1, df2
 
 
 def identify_A1(df1, df2):
